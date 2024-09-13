@@ -6,22 +6,18 @@ export function generateLanggraphJS(
   edges: CustomEdgeType[],
   buttonTexts: { [key: string]: string },
 ): string {
-  // Helper function to get node label
   const getNodeLabel = (nodeId: string) => {
     const node = nodes.find((n) => n.id === nodeId)
     const buttonText = buttonTexts[nodeId]
     return (buttonText || (node?.data?.label as string) || nodeId).replace(/\s+/g, '_')
   }
 
-  // JavaScript code generation
-  // Generate imports
   const imports = [
     "import { StateGraph, END, Annotation } from '@langchain/langgraph';",
-    "import { State, StateAnnotation } from './State';",
+    "import { StateAnnotation } from './State';",
     '',
   ]
 
-  // Generate class definition
   const classDefinition = [
     'export class WorkflowManager {',
     '  constructor() {',
@@ -32,15 +28,13 @@ export function generateLanggraphJS(
     '',
   ]
 
-  // Generate function definitions
   const functions = nodes
     .filter((node) => node.type !== 'source' && node.type !== 'end')
     .map((node) => {
-      const functionName = (node.data.label as string).replace(/\s+/g, '_')
-      return `  ${functionName}(args) {\n    return args;\n  }\n`
+      const functionName = (buttonTexts[node.id] || (node?.data?.label as string) || node.id).replace(/\s+/g, '_')
+      return `function ${functionName}(state) {\n    return {};\n  }\n`
     })
 
-  // Generate conditional functions
   const conditionalFunctions = new Map()
   edges
     .filter((edge) => edge.animated)
@@ -57,17 +51,16 @@ export function generateLanggraphJS(
     const targetStrings = Array.from(targets)
       .map((target) => `    // return "${target}";`)
       .join('\n')
-    return `  conditional_${sourceLabel}(args) {\n${targetStrings}\n    return END;\n  }\n`
+    return `function conditional_${sourceLabel}(state) {\n${targetStrings}\n  }\n`
   })
 
-  // Generate create_workflow function
-  const workflowFunction = ['  create_workflow() {', '    const workflow = new StateGraph(StateAnnotation)']
+  const workflowFunction = ['function create_workflow() {', '    const workflow = new StateGraph(StateAnnotation)']
 
   nodes
     .filter((node) => node.type !== 'source' && node.type !== 'end')
     .forEach((node) => {
-      const nodeLabel = (node.data.label as string).replace(/\s+/g, '_')
-      workflowFunction.push(`      .addNode("${nodeLabel}", this.${nodeLabel})`)
+      const nodeLabel = (buttonTexts[node.id] || (node?.data?.label as string) || node.id).replace(/\s+/g, '_')
+      workflowFunction.push(`      .addNode("${nodeLabel}", ${nodeLabel})`)
     })
 
   workflowFunction.push('')
@@ -79,7 +72,7 @@ export function generateLanggraphJS(
     const targetLabel = getNodeLabel(edge.target)
     if (edge.animated) {
       if (!processedConditionalEdges.has(sourceLabel)) {
-        workflowFunction.push(`      .addConditionalEdges("${sourceLabel}", this.conditional_${sourceLabel})`)
+        workflowFunction.push(`      .addConditionalEdges("${sourceLabel}", conditional_${sourceLabel})`)
         processedConditionalEdges.add(sourceLabel)
       }
     } else {
@@ -101,7 +94,6 @@ export function generateLanggraphJS(
 
   workflowFunction.push('\n    return workflow;', '  }')
 
-  // Generate additional utility functions
   const utilityFunctions = [
     '  returnGraph() {',
     '    return this.create_workflow().compile();',
@@ -114,17 +106,17 @@ export function generateLanggraphJS(
     '  }',
   ]
 
-  // Combine all parts
+  const graph = `\nconst workflow = create_workflow();\nconst graph = workflow.compile();\nexport { graph };\n`
+
   const codeParts = [
     ...imports,
     '',
-    ...classDefinition,
+    // ...classDefinition,
     ...functions,
     ...conditionalFunctionStrings,
     ...workflowFunction,
-    '',
-    ...utilityFunctions,
-    '}',
+    // ...utilityFunctions,
+    graph,
   ]
 
   return codeParts.join('\n')

@@ -21,7 +21,7 @@ export default function SourceNode({ data }: NodeProps<SourceNode>) {
       <div className='p-3 px-8 rounded-3xl' style={{ color: randomBorderColor, backgroundColor: `rgba(26,26,36,0.8)` }}>
         __start__
       </div>
-      <Handle type='source' position={Position.Bottom} />
+      <Handle type='source' style={{ width: '10px', height: '10px' }} position={Position.Bottom} />
     </div>
   )
 }

@@ -14,7 +14,7 @@ import {
   type Node,
   type Edge,
 } from '@xyflow/react'
-import { MarkerType } from '@xyflow/react'
+import { MarkerType } from 'reactflow'
 import '@xyflow/react/dist/style.css'
 
 import { initialNodes, nodeTypes, type CustomNodeType } from './nodes'
@@ -50,7 +50,15 @@ export default function App() {
     (connection) => {
       console.log('onConnect', connection)
       setEdges((edges) =>
-        addEdge({ ...connection, markerEnd: { type: MarkerType.ArrowClosed, width: 30, height: 30 } }, edges),
+        addEdge(
+          {
+            ...connection,
+            markerEnd: { type: MarkerType.ArrowClosed, width: 30, height: 30 },
+            type: 'self-connecting-edge',
+            animated: connection.source === connection.target,
+          },
+          edges,
+        ),
       )
     },
     [setEdges, nodes],
@@ -124,6 +132,7 @@ export default function App() {
           selected: true,
           data: { label: `Node ${nodes.length + 1}` },
         }
+
         setNodes((nodes) =>
           applyNodeChanges(
             [
@@ -154,11 +163,10 @@ export default function App() {
     const myAgent = zip.folder('my_agent')
 
     myAgent!.file('WorkFlow.py', generatedCode.code)
-    myAgent!.file('main.py', `# main.py content`) // Add the content for main.py
-    myAgent!.file('LLMManager.py', `# LLMManager.py content`) // Add the content for LLMManager.py
+    myAgent!.file('LLMManager.py', `# LLMManager.py content`)
 
     zip.file('.env.example', `OPENAI_API_KEY=your_openai_api_key_here`)
-    zip.file('langgraph.json', JSON.stringify({ nodes, edges }, null, 2))
+    zip.file('langgraph.json', `Langgraph JSON content`)
     zip.file('requirements.txt', `langgraph\nlangchain\nopenai\npython-dotenv`)
 
     zip.generateAsync({ type: 'blob' }).then((content) => {
@@ -207,11 +215,10 @@ export default function App() {
         }}
       >
         <Background />
-        <Controls />
       </ReactFlow>
       <button
         onClick={handleGenerateCode}
-        className='absolute bottom-4 right-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded'
+        className='absolute bottom-4 right-4 bg-[#246161] hover:bg-[#195656] text-white font-bold py-2 px-4 rounded'
       >
         Generate Code
       </button>

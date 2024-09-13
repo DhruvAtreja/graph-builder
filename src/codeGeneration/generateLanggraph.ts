@@ -15,16 +15,18 @@ export function generateLanggraphCode(
 
   // Generate imports
   const imports = [
-    'from langgraph.graph import StateGraph',
-    'from langgraph.graph import END',
-    'from typing_extensions import TypedDict',
+    'from langgraph.graph import StateGraph, END',
+    'from typing_extensions import TypedDict, Literal',
     '\n',
   ]
 
   // Generate function definitions
   const functions = nodes
     .filter((node) => node.type !== 'source' && node.type !== 'end')
-    .map((node) => `def ${(node.data.label as string).replace(/\s+/g, '_')}(self, args) -> dict:\n    return args\n`)
+    .map(
+      (node) =>
+        `def ${(buttonTexts[node.id] || (node?.data?.label as string) || node.id).replace(/\s+/g, '_')}(state: State, config: dict) -> State:\n    return {} \n`,
+    )
 
   // Generate conditional functions
   const conditionalFunctions = new Map()
@@ -41,17 +43,20 @@ export function generateLanggraphCode(
 
   const conditionalFunctionStrings = Array.from(conditionalFunctions.entries()).map(([sourceLabel, targets]) => {
     const targetStrings = Array.from(targets)
-      .map((target) => `    # return "${target}"`)
+      .map((target) => (target === 'end' ? '    # return END' : `    # return "${target}"`))
       .join('\n')
-    return `def conditional_${sourceLabel}(self, args) -> str:\n${targetStrings}\n    return END\n`
+    const literalTypes = Array.from(targets)
+      .map((target) => (target === 'end' ? 'END' : `'${target}'`))
+      .join(', ')
+    return `def conditional_${sourceLabel}(state: State, config: dict) -> Literal[${literalTypes}]:\n${targetStrings}\n\n`
   })
 
   // Generate State class
-  const stateClass = ['class State(TypedDict):', '    # add state', '    sample_state_variable: str', '\n']
+  const stateClass = ['class State(TypedDict):', '\n']
 
   // Generate create_workflow function
   const workflowFunction = [
-    'def create_workflow(self) -> StateGraph:',
+    'def create_workflow() -> StateGraph:',
     '    """Create and configure the workflow graph."""',
     '    workflow = StateGraph(State) # add state',
     '',
@@ -62,8 +67,10 @@ export function generateLanggraphCode(
     .filter((node) => node.type !== 'source' && node.type !== 'end')
     .forEach((node) => {
       workflowFunction.push(
-        `    workflow.add_node("${(node.data.label as string).replace(/\s+/g, '_')}", ${(
-          node.data.label as string
+        `    workflow.add_node("${(buttonTexts[node.id] || (node?.data?.label as string) || node.id).replace(/\s+/g, '_')}", ${(
+          buttonTexts[node.id] ||
+          (node?.data?.label as string) ||
+          node.id
         ).replace(/\s+/g, '_')})`,
       )
     })
@@ -96,30 +103,14 @@ export function generateLanggraphCode(
   if (startNode) {
     workflowFunction.push(`    workflow.set_entry_point("${getNodeLabel(startNode.id)}")`)
   }
-  workflowFunction.push('\n    return workflow')
+  workflowFunction.push('\n    return workflow\n')
 
   // Generate additional utility functions
-  const utilityFunctions = [
-    'def returnGraph(self):',
-    '    """Return the graph."""',
-    '    return self.create_workflow().compile()',
-    '',
-    'def run_sql_agent(self, args) -> dict:',
-    '    """Run the SQL agent workflow."""',
-    '    app = self.create_workflow().compile()',
-    '    result = app.invoke(args)',
-    '    return result',
-  ]
+  const graph = `workflow = create_workflow()
+graph=workflow.compile()`
 
   // Combine all parts
-  const codeParts = [
-    ...imports,
-    ...functions,
-    ...conditionalFunctionStrings,
-    ...stateClass,
-    ...workflowFunction,
-    ...utilityFunctions,
-  ]
+  const codeParts = [...imports, ...functions, ...conditionalFunctionStrings, ...stateClass, ...workflowFunction, graph]
 
   return codeParts.join('\n')
 }

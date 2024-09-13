@@ -17,7 +17,7 @@ export default function EndNode() {
       <div className='p-3 px-8 rounded-3xl' style={{ color: randomBorderColor, backgroundColor: `rgba(26,26,36,0.8)` }}>
         __end__
       </div>
-      <Handle type='target' position={Position.Top} />
+      <Handle type='target' style={{ width: '10px', height: '10px' }} position={Position.Top} />
     </div>
   )
 }
