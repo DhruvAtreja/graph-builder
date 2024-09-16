@@ -8,17 +8,14 @@ export function generateLanggraphCode(
   buttonTexts: { [key: string]: string },
   edgeLabels: { [key: string]: string },
 ): string {
-  // Helper function to get node label
   const getNodeLabel = (nodeId: string) => {
     const node = nodes.find((n) => n.id === nodeId)
     const buttonText = buttonTexts[nodeId]
     return (buttonText || (node?.data?.label as string) || nodeId).replace(/\s+/g, '_')
   }
 
-  // Generate imports
   const imports = ['from langgraph.graph import StateGraph, END', 'from typing import TypedDict, Literal', '\n']
 
-  // Generate function definitions
   const functions = nodes
     .filter((node) => node.type !== 'source' && node.type !== 'end')
     .map(
@@ -26,7 +23,6 @@ export function generateLanggraphCode(
         `def ${(buttonTexts[node.id] || (node?.data?.label as string) || node.id).replace(/\s+/g, '_')}(state: State, config: dict) -> State:\n    return {} \n`,
     )
 
-  // Generate conditional functions
   const conditionalFunctions = new Map()
   edges
     .filter((edge) => edge.animated)
@@ -52,12 +48,10 @@ export function generateLanggraphCode(
     },
   )
 
-  // Generate State class
   const stateClass = [
     'class State(TypedDict): \n    """State class for the agent"""\n    # Add your state variables here\n',
   ]
 
-  // Generate create_workflow function
   const workflowFunction = ['workflow = StateGraph(State)', '', '# Add nodes to the graph']
 
   nodes
@@ -102,10 +96,8 @@ export function generateLanggraphCode(
     workflowFunction.push(`workflow.set_entry_point("${getNodeLabel(startNode.id)}")`)
   }
 
-  // Generate additional utility functions
   const graph = `\ngraph=workflow.compile()`
 
-  // Combine all parts
   const codeParts = [...imports, ...stateClass, ...functions, ...conditionalFunctionStrings, ...workflowFunction, graph]
 
   return codeParts.join('\n')

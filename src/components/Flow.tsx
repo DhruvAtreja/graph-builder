@@ -40,6 +40,8 @@ export default function App() {
   const [showModal, setShowModal] = useState(false)
   const [codeType, setCodeType] = useState<'js' | 'python' | null>(null)
   const { buttonTexts } = useButtonText()
+  const [maxNodeLength, setMaxNodeLength] = useState(0)
+  const [maxEdgeLength, setMaxEdgeLength] = useState(0)
 
   const { edgeLabels, updateEdgeLabel } = useEdgeLabel()
 
@@ -72,7 +74,8 @@ export default function App() {
   const onConnect: OnConnect = useCallback(
     (connection) => {
       console.log('onConnect', connection)
-      const edgeId = `edge-${edges.length + 1}`
+      const edgeId = `edge-${maxEdgeLength + 1}`
+      setMaxEdgeLength(maxEdgeLength + 1)
       const defaultLabel = `conditional_${buttonTexts[connection.source] ? buttonTexts[connection.source].replace(/\s+/g, '_') : 'default'}`
       const newEdge: CustomEdgeType = {
         ...connection,
@@ -105,7 +108,7 @@ export default function App() {
         return updatedEdges
       })
     },
-    [setEdges, edges, buttonTexts, updateEdgeLabel, edgeLabels],
+    [setEdges, edges, buttonTexts, updateEdgeLabel, edgeLabels, maxEdgeLength],
   )
 
   const onChange = useCallback(
@@ -174,12 +177,13 @@ export default function App() {
         })
 
         const newNode: CustomNodeType = {
-          id: `node-${nodes.length + 1}`,
+          id: `node-${maxNodeLength + 1}`,
           type: 'custom',
           position,
           selected: true,
-          data: { label: `Node ${nodes.length + 1}` },
+          data: { label: `Node ${maxNodeLength + 1}` },
         }
+        setMaxNodeLength(maxNodeLength + 1)
 
         setNodes((nodes) =>
           applyNodeChanges(
@@ -194,7 +198,7 @@ export default function App() {
         )
       }
     },
-    [nodes, setNodes, reactFlowInstance, reactFlowWrapper, isConnecting, applyNodeChanges],
+    [nodes, setNodes, reactFlowInstance, reactFlowWrapper, isConnecting, applyNodeChanges, maxNodeLength],
   )
 
   const generateCode = useCallback(() => {
