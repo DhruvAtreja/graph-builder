@@ -282,12 +282,12 @@ export default function App() {
       {generatedCode && (
         <div className='absolute top-4 right-4 bg-white h-full overflow-y-scroll no-scrollbar p-4 rounded shadow-lg'>
           <div className='absolute top-0 right-0 p-2 flex flex-row gap-2'>
-            <button
+            {/* <button
               onClick={downloadZip}
               className='bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded'
             >
               Download
-            </button>
+            </button> */}
             <button
               onClick={() => setGeneratedCode(null)}
               className=' bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded'
