@@ -1,10 +1,12 @@
 import { type CustomNodeType } from '@/components/nodes'
 import { type CustomEdgeType } from '@/components/edges'
+import { useEdgeLabel } from '@/contexts/EdgeLabelContext'
 
 export function generateLanggraphCode(
   nodes: CustomNodeType[],
   edges: CustomEdgeType[],
   buttonTexts: { [key: string]: string },
+  edgeLabels: { [key: string]: string },
 ): string {
   // Helper function to get node label
   const getNodeLabel = (nodeId: string) => {
@@ -35,21 +37,24 @@ export function generateLanggraphCode(
     .forEach((edge) => {
       const sourceLabel = getNodeLabel(edge.source)
       const targetLabel = getNodeLabel(edge.target)
-      if (!conditionalFunctions.has(sourceLabel)) {
-        conditionalFunctions.set(sourceLabel, new Set())
+      const edgeLabel = edgeLabels[edge.id] || `conditional_${sourceLabel}`
+      if (!conditionalFunctions.has(edgeLabel)) {
+        conditionalFunctions.set(edgeLabel, { source: sourceLabel, targets: new Set() })
       }
-      conditionalFunctions.get(sourceLabel).add(targetLabel)
+      conditionalFunctions.get(edgeLabel).targets.add(targetLabel)
     })
 
-  const conditionalFunctionStrings = Array.from(conditionalFunctions.entries()).map(([sourceLabel, targets]) => {
-    const targetStrings = Array.from(targets)
-      .map((target) => (target === 'end' ? '    # return END' : `    # return "${target}"`))
-      .join('\n')
-    const literalTypes = Array.from(targets)
-      .map((target) => (target === 'end' ? 'END' : `'${target}'`))
-      .join(', ')
-    return `def conditional_${sourceLabel}(state: State, config: dict) -> Literal[${literalTypes}]:\n${targetStrings}\n\n`
-  })
+  const conditionalFunctionStrings = Array.from(conditionalFunctions.entries()).map(
+    ([edgeLabel, { source, targets }]) => {
+      const targetStrings = Array.from(targets)
+        .map((target) => (target === 'end' ? '    # return END' : `    # return "${target}"`))
+        .join('\n')
+      const literalTypes = Array.from(targets)
+        .map((target) => (target === 'end' ? 'END' : `'${target}'`))
+        .join(', ')
+      return `def ${edgeLabel}(state: State, config: dict) -> Literal[${literalTypes}]:\n${targetStrings}\n\n`
+    },
+  )
 
   // Generate State class
   const stateClass = ['class State(TypedDict):', '\n']
@@ -83,9 +88,10 @@ export function generateLanggraphCode(
     const sourceLabel = getNodeLabel(edge.source)
     const targetLabel = getNodeLabel(edge.target)
     if (edge.animated) {
-      if (!processedConditionalEdges.has(sourceLabel)) {
-        workflowFunction.push(`    workflow.add_conditional_edges("${sourceLabel}", conditional_${sourceLabel})`)
-        processedConditionalEdges.add(sourceLabel)
+      const edgeLabel = edgeLabels[edge.id] || `conditional_${sourceLabel}`
+      if (!processedConditionalEdges.has(edgeLabel)) {
+        workflowFunction.push(`    workflow.add_conditional_edges("${sourceLabel}", ${edgeLabel})`)
+        processedConditionalEdges.add(edgeLabel)
       }
     } else {
       if (targetLabel === 'end') {

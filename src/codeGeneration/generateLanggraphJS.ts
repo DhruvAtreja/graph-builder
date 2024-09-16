@@ -5,6 +5,7 @@ export function generateLanggraphJS(
   nodes: CustomNodeType[],
   edges: CustomEdgeType[],
   buttonTexts: { [key: string]: string },
+  edgeLabels: { [key: string]: string },
 ): string {
   const getNodeLabel = (nodeId: string) => {
     const node = nodes.find((n) => n.id === nodeId)
@@ -41,18 +42,21 @@ export function generateLanggraphJS(
     .forEach((edge) => {
       const sourceLabel = getNodeLabel(edge.source)
       const targetLabel = getNodeLabel(edge.target)
-      if (!conditionalFunctions.has(sourceLabel)) {
-        conditionalFunctions.set(sourceLabel, new Set())
+      const edgeLabel = edgeLabels[edge.id] || `conditional_${sourceLabel}`
+      if (!conditionalFunctions.has(edgeLabel)) {
+        conditionalFunctions.set(edgeLabel, { source: sourceLabel, targets: new Set() })
       }
-      conditionalFunctions.get(sourceLabel).add(targetLabel)
+      conditionalFunctions.get(edgeLabel).targets.add(targetLabel)
     })
 
-  const conditionalFunctionStrings = Array.from(conditionalFunctions.entries()).map(([sourceLabel, targets]) => {
-    const targetStrings = Array.from(targets)
-      .map((target) => `    // return "${target}";`)
-      .join('\n')
-    return `function conditional_${sourceLabel}(state) {\n${targetStrings}\n  }\n`
-  })
+  const conditionalFunctionStrings = Array.from(conditionalFunctions.entries()).map(
+    ([edgeLabel, { source, targets }]) => {
+      const targetStrings = Array.from(targets)
+        .map((target) => `    // return "${target}";`)
+        .join('\n')
+      return `function ${edgeLabel}(state) {\n${targetStrings}\n  }\n`
+    },
+  )
 
   const workflowFunction = ['function create_workflow() {', '    const workflow = new StateGraph(StateAnnotation)']
 
@@ -71,9 +75,10 @@ export function generateLanggraphJS(
     const sourceLabel = getNodeLabel(edge.source)
     const targetLabel = getNodeLabel(edge.target)
     if (edge.animated) {
-      if (!processedConditionalEdges.has(sourceLabel)) {
-        workflowFunction.push(`      .addConditionalEdges("${sourceLabel}", conditional_${sourceLabel})`)
-        processedConditionalEdges.add(sourceLabel)
+      const edgeLabel = edgeLabels[edge.id] || `conditional_${sourceLabel}`
+      if (!processedConditionalEdges.has(edgeLabel)) {
+        workflowFunction.push(`      .addConditionalEdges("${sourceLabel}", ${edgeLabel})`)
+        processedConditionalEdges.add(edgeLabel)
       }
     } else {
       if (targetLabel === 'end') {

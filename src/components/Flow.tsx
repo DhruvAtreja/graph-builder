@@ -26,6 +26,8 @@ import { saveAs } from 'file-saver'
 import JSZip from 'jszip'
 import { useButtonText } from '@/contexts/ButtonTextContext'
 import Modal from './Modal'
+import { useEdgeLabel } from '@/contexts/EdgeLabelContext'
+import EdgeLabelModal from './EdgeLabelModal'
 
 export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomNodeType>(initialNodes)
@@ -37,6 +39,27 @@ export default function App() {
   const [generatedCode, setGeneratedCode] = useState<CodeGenerationResult | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [codeType, setCodeType] = useState<'js' | 'python' | null>(null)
+  const { buttonTexts } = useButtonText()
+
+  const { edgeLabels, updateEdgeLabel } = useEdgeLabel()
+
+  const [isEdgeLabelModalOpen, setIsEdgeLabelModalOpen] = useState(false)
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+
+  const handleEdgeLabelClick = useCallback((edgeId: string) => {
+    setSelectedEdgeId(edgeId)
+    setIsEdgeLabelModalOpen(true)
+  }, [])
+
+  const handleEdgeLabelSave = useCallback(
+    (newLabel: string) => {
+      if (selectedEdgeId) {
+        updateEdgeLabel(selectedEdgeId, newLabel)
+      }
+      setIsEdgeLabelModalOpen(false)
+    },
+    [selectedEdgeId, updateEdgeLabel],
+  )
 
   const onConnectStart: OnConnectStart = useCallback(
     (connection) => {
@@ -49,19 +72,19 @@ export default function App() {
   const onConnect: OnConnect = useCallback(
     (connection) => {
       console.log('onConnect', connection)
-      setEdges((edges) =>
-        addEdge(
-          {
-            ...connection,
-            markerEnd: { type: MarkerType.ArrowClosed, width: 30, height: 30 },
-            type: 'self-connecting-edge',
-            animated: connection.source === connection.target,
-          },
-          edges,
-        ),
-      )
+      const edgeId = `edge-${edges.length + 1}`
+      const defaultLabel = `conditional_${buttonTexts[connection.source] ? buttonTexts[connection.source].replace(/\s+/g, '_') : 'default'}`
+      const newEdge: CustomEdgeType = {
+        ...connection,
+        id: edgeId,
+        markerEnd: { type: MarkerType.ArrowClosed },
+        type: 'self-connecting-edge',
+        animated: connection.source === connection.target,
+        label: defaultLabel,
+      }
+      setEdges((edges) => addEdge(newEdge, edges))
     },
-    [setEdges, nodes],
+    [setEdges, edges, buttonTexts],
   )
 
   const onChange = useCallback(
@@ -84,8 +107,11 @@ export default function App() {
           ),
         )
       } else {
-        setEdges((edgs) =>
-          applyEdgeChanges(
+        setEdges((edgs) => {
+          const defaultLabel = `conditional_${buttonTexts[edges[0].source] ? buttonTexts[edges[0].source].replace(/\s+/g, '_') : 'default'}`
+          const label = edgeLabels[edges[0].id] || defaultLabel
+          // updateEdgeLabel(edges[0].id, label)
+          return applyEdgeChanges(
             [
               {
                 type: 'replace',
@@ -96,12 +122,13 @@ export default function App() {
                   target: edges[0].target,
                   animated: !edges[0].animated,
                   selected: false,
+                  label: label,
                 },
               },
             ],
             edgs,
-          ),
-        )
+          )
+        })
       }
       setLastClickTime(currentTime)
     },
@@ -149,12 +176,10 @@ export default function App() {
     [nodes, setNodes, reactFlowInstance, reactFlowWrapper, isConnecting, applyNodeChanges],
   )
 
-  const { buttonTexts } = useButtonText()
-
   const generateCode = useCallback(() => {
-    const workflowCode = generateLanggraphJS(nodes, edges, buttonTexts)
+    const workflowCode = generateLanggraphJS(nodes, edges, buttonTexts, edgeLabels)
     setGeneratedCode({ code: workflowCode, nodes, edges })
-  }, [nodes, edges, buttonTexts])
+  }, [nodes, edges, buttonTexts, edgeLabels])
 
   const downloadZip = useCallback(() => {
     if (!generatedCode) return
@@ -184,9 +209,9 @@ export default function App() {
 
     let generatedCode
     if (type === 'js') {
-      generatedCode = generateLanggraphJS(nodes, edges, buttonTexts)
+      generatedCode = generateLanggraphJS(nodes, edges, buttonTexts, edgeLabels)
     } else {
-      generatedCode = generateLanggraphCode(nodes, edges, buttonTexts)
+      generatedCode = generateLanggraphCode(nodes, edges, buttonTexts, edgeLabels)
     }
 
     setGeneratedCode({ code: generatedCode, nodes, edges })
@@ -201,7 +226,11 @@ export default function App() {
         nodes={nodes}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
-        edges={edges}
+        edges={edges.map((edge) => ({
+          ...edge,
+          label: edgeLabels[edge.id] || edge.label,
+          data: { ...edge.data, onLabelClick: handleEdgeLabelClick },
+        }))}
         edgeTypes={edgeTypes}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -247,6 +276,12 @@ export default function App() {
           </pre>
         </div>
       )}
+      <EdgeLabelModal
+        isOpen={isEdgeLabelModalOpen}
+        onClose={() => setIsEdgeLabelModalOpen(false)}
+        onSave={handleEdgeLabelSave}
+        initialLabel={selectedEdgeId ? edgeLabels[selectedEdgeId] || '' : ''}
+      />
     </div>
   )
 }

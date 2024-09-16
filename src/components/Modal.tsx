@@ -19,7 +19,7 @@ const Modal: React.FC<ModalProps> = ({ onClose, onSelect }) => {
       <div
         className={`bg-[#131316] p-6 rounded-lg relative transition-all duration-500 ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
       >
-        <h2 className='text-xl text-white font-semibold mb-4'>Choose Language</h2>
+        <h2 className='text-xl text-white font-semibold mb-4'>Choose language</h2>
         <div className='flex space-x-4'>
           <button
             onClick={() => onSelect('js')}

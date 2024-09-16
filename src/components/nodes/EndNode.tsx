@@ -6,7 +6,10 @@ export type EndNode = Node
 
 export default function EndNode() {
   const randomBorderColor = useMemo(() => {
-    return `#${Math.floor(Math.random() * 16777215).toString(16)}`
+    const hue = Math.floor(Math.random() * 360)
+    const saturation = 70 + Math.random() * 30
+    const lightness = 60 + Math.random() * 20
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`
   }, [])
 
   return (
