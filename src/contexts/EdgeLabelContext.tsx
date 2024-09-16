@@ -1,22 +1,22 @@
 import React, { createContext, useState, useContext } from 'react'
 
 type EdgeLabelContextType = {
-  edgeLabels: { [key: string]: string }
-  updateEdgeLabel: (id: string, label: string) => void
-  getEdgeLabel: (id: string, defaultLabel: string) => string
+  edgeLabels: { [sourceNodeId: string]: string }
+  updateEdgeLabel: (sourceNodeId: string, label: string) => void
+  getEdgeLabel: (sourceNodeId: string, defaultLabel: string) => string
 }
 
 const EdgeLabelContext = createContext<EdgeLabelContextType | undefined>(undefined)
 
 export const EdgeLabelProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [edgeLabels, setEdgeLabels] = useState<{ [key: string]: string }>({})
+  const [edgeLabels, setEdgeLabels] = useState<{ [sourceNodeId: string]: string }>({})
 
-  const updateEdgeLabel = (id: string, label: string) => {
-    setEdgeLabels((prev) => ({ ...prev, [id]: label }))
+  const updateEdgeLabel = (sourceNodeId: string, label: string) => {
+    setEdgeLabels((prev) => ({ ...prev, [sourceNodeId]: label }))
   }
 
-  const getEdgeLabel = (id: string, defaultLabel: string) => {
-    return edgeLabels[id] || defaultLabel
+  const getEdgeLabel = (sourceNodeId: string, defaultLabel: string) => {
+    return edgeLabels[sourceNodeId] || defaultLabel
   }
 
   return (

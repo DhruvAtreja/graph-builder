@@ -16,11 +16,7 @@ export function generateLanggraphCode(
   }
 
   // Generate imports
-  const imports = [
-    'from langgraph.graph import StateGraph, END',
-    'from typing_extensions import TypedDict, Literal',
-    '\n',
-  ]
+  const imports = ['from langgraph.graph import StateGraph, END', 'from typing import TypedDict, Literal', '\n']
 
   // Generate function definitions
   const functions = nodes
@@ -37,7 +33,7 @@ export function generateLanggraphCode(
     .forEach((edge) => {
       const sourceLabel = getNodeLabel(edge.source)
       const targetLabel = getNodeLabel(edge.target)
-      const edgeLabel = edgeLabels[edge.id] || `conditional_${sourceLabel}`
+      const edgeLabel = edgeLabels[edge.source] || `conditional_${sourceLabel}`
       if (!conditionalFunctions.has(edgeLabel)) {
         conditionalFunctions.set(edgeLabel, { source: sourceLabel, targets: new Set() })
       }
@@ -52,27 +48,23 @@ export function generateLanggraphCode(
       const literalTypes = Array.from(targets)
         .map((target) => (target === 'end' ? 'END' : `'${target}'`))
         .join(', ')
-      return `def ${edgeLabel}(state: State, config: dict) -> Literal[${literalTypes}]:\n${targetStrings}\n\n`
+      return `def ${edgeLabel}(state: State, config: dict) -> Literal[${literalTypes}]:\n    """Function to handle conditional edges for ${source}"""\n${targetStrings}\n`
     },
   )
 
   // Generate State class
-  const stateClass = ['class State(TypedDict):', '\n']
+  const stateClass = [
+    'class State(TypedDict): \n    """State class for the agent"""\n    # Add your state variables here\n',
+  ]
 
   // Generate create_workflow function
-  const workflowFunction = [
-    'def create_workflow() -> StateGraph:',
-    '    """Create and configure the workflow graph."""',
-    '    workflow = StateGraph(State) # add state',
-    '',
-    '    # Add nodes to the graph',
-  ]
+  const workflowFunction = ['workflow = StateGraph(State)', '', '# Add nodes to the graph']
 
   nodes
     .filter((node) => node.type !== 'source' && node.type !== 'end')
     .forEach((node) => {
       workflowFunction.push(
-        `    workflow.add_node("${(buttonTexts[node.id] || (node?.data?.label as string) || node.id).replace(/\s+/g, '_')}", ${(
+        `workflow.add_node("${(buttonTexts[node.id] || (node?.data?.label as string) || node.id).replace(/\s+/g, '_')}", ${(
           buttonTexts[node.id] ||
           (node?.data?.label as string) ||
           node.id
@@ -80,7 +72,7 @@ export function generateLanggraphCode(
       )
     })
 
-  workflowFunction.push('', '    # Define edges')
+  workflowFunction.push('', '# Define edges')
 
   const processedConditionalEdges = new Set()
 
@@ -88,16 +80,16 @@ export function generateLanggraphCode(
     const sourceLabel = getNodeLabel(edge.source)
     const targetLabel = getNodeLabel(edge.target)
     if (edge.animated) {
-      const edgeLabel = edgeLabels[edge.id] || `conditional_${sourceLabel}`
+      const edgeLabel = edgeLabels[edge.source] || `conditional_${sourceLabel}`
       if (!processedConditionalEdges.has(edgeLabel)) {
-        workflowFunction.push(`    workflow.add_conditional_edges("${sourceLabel}", ${edgeLabel})`)
+        workflowFunction.push(`workflow.add_conditional_edges("${sourceLabel}", ${edgeLabel})`)
         processedConditionalEdges.add(edgeLabel)
       }
     } else {
       if (targetLabel === 'end') {
-        workflowFunction.push(`    workflow.add_edge("${sourceLabel}", END)`)
+        workflowFunction.push(`workflow.add_edge("${sourceLabel}", END)`)
       } else {
-        if (sourceLabel != 'source') workflowFunction.push(`    workflow.add_edge("${sourceLabel}", "${targetLabel}")`)
+        if (sourceLabel != 'source') workflowFunction.push(`workflow.add_edge("${sourceLabel}", "${targetLabel}")`)
       }
     }
   })
@@ -107,16 +99,14 @@ export function generateLanggraphCode(
     return edges.some((edge) => edge.source === sourceNode?.id && edge.target === node.id)
   })
   if (startNode) {
-    workflowFunction.push(`    workflow.set_entry_point("${getNodeLabel(startNode.id)}")`)
+    workflowFunction.push(`workflow.set_entry_point("${getNodeLabel(startNode.id)}")`)
   }
-  workflowFunction.push('\n    return workflow\n')
 
   // Generate additional utility functions
-  const graph = `workflow = create_workflow()
-graph=workflow.compile()`
+  const graph = `\ngraph=workflow.compile()`
 
   // Combine all parts
-  const codeParts = [...imports, ...functions, ...conditionalFunctionStrings, ...stateClass, ...workflowFunction, graph]
+  const codeParts = [...imports, ...stateClass, ...functions, ...conditionalFunctionStrings, ...workflowFunction, graph]
 
   return codeParts.join('\n')
 }

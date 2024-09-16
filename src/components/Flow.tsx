@@ -46,8 +46,8 @@ export default function App() {
   const [isEdgeLabelModalOpen, setIsEdgeLabelModalOpen] = useState(false)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
 
-  const handleEdgeLabelClick = useCallback((edgeId: string) => {
-    setSelectedEdgeId(edgeId)
+  const handleEdgeLabelClick = useCallback((sourceNodeId: string) => {
+    setSelectedEdgeId(sourceNodeId)
     setIsEdgeLabelModalOpen(true)
   }, [])
 
@@ -82,9 +82,30 @@ export default function App() {
         animated: connection.source === connection.target,
         label: defaultLabel,
       }
-      setEdges((edges) => addEdge(newEdge, edges))
+
+      setEdges((prevEdges) => {
+        const updatedEdges = addEdge(newEdge, prevEdges)
+
+        // Check if there are other edges from the same source
+        const sourceEdges = updatedEdges.filter((edge) => edge.source === connection.source)
+
+        if (sourceEdges.length > 1) {
+          // If there are multiple edges from the same source, make them all conditional
+          return updatedEdges.map((edge) =>
+            edge.source === connection.source
+              ? {
+                  ...edge,
+                  animated: true,
+                  label: edgeLabels[edge.id] || defaultLabel || edge.label,
+                }
+              : edge,
+          )
+        }
+
+        return updatedEdges
+      })
     },
-    [setEdges, edges, buttonTexts],
+    [setEdges, edges, buttonTexts, updateEdgeLabel, edgeLabels],
   )
 
   const onChange = useCallback(
@@ -228,8 +249,8 @@ export default function App() {
         onNodesChange={onNodesChange}
         edges={edges.map((edge) => ({
           ...edge,
-          label: edgeLabels[edge.id] || edge.label,
-          data: { ...edge.data, onLabelClick: handleEdgeLabelClick },
+          label: edgeLabels[edge.source] || edge.label,
+          data: { ...edge.data, onLabelClick: () => handleEdgeLabelClick(edge.source) },
         }))}
         edgeTypes={edgeTypes}
         onEdgesChange={onEdgesChange}
